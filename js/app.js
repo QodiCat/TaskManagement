@@ -487,6 +487,23 @@ class TaskManagementSystem {
         }
     }
 
+    // 获取任务的完整路径（包括所有上级任务）
+    getTaskPath(taskId) {
+        const path = [];
+        let currentTask = this.tasks.find(t => t.id === taskId);
+        
+        while (currentTask) {
+            path.unshift(currentTask.name);
+            if (currentTask.parentId) {
+                currentTask = this.tasks.find(t => t.id === currentTask.parentId);
+            } else {
+                break;
+            }
+        }
+        
+        return path;
+    }
+
     // 甘特图功能
     renderGantt() {
         const container = document.getElementById('ganttContainer');
@@ -540,6 +557,12 @@ class TaskManagementSystem {
             const startDate = task.actualStartTime ? new Date(task.actualStartTime) : new Date(task.plannedStartTime);
             const endDate = task.actualEndTime ? new Date(task.actualEndTime) : new Date(task.plannedEndTime);
             
+            // 获取任务的完整路径
+            const taskPath = this.getTaskPath(task.id);
+            const pathDisplay = taskPath.length > 1 ? 
+                taskPath.slice(0, -1).join(' > ') + ' > ' + taskPath[taskPath.length - 1] :
+                taskPath[0];
+            
             // 计算位置和宽度
             const startIndex = dateRange.findIndex(date => 
                 date.toDateString() === startDate.toDateString()
@@ -554,8 +577,8 @@ class TaskManagementSystem {
             return `
                 <div class="gantt-row">
                     <div class="gantt-task-name">
-                        <strong>${task.name}</strong><br>
-                        <small>${person.name}</small>
+                        <div class="task-path">${pathDisplay}</div>
+                        <small class="assignee">${person.name}</small>
                     </div>
                     <div class="gantt-timeline">
                         <div class="gantt-bar" style="left: ${left}px; width: ${width}px;">
