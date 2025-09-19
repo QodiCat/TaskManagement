@@ -612,14 +612,18 @@ class TaskManagementSystem {
             const left = startIndex * 80;
             const width = (endIndex - startIndex + 1) * 80;
             
+            // 根据优先级确定样式类
+            const priorityClass = `priority-${task.priority}`;
+            
             return `
                 <div class="gantt-row">
                     <div class="gantt-task-name">
                         <div class="task-path">${pathDisplay}</div>
                         <small class="assignee">${person.name}</small>
+                        <small class="priority-indicator ${priorityClass}">${task.priority}</small>
                     </div>
                     <div class="gantt-timeline">
-                        <div class="gantt-bar" style="left: ${left}px; width: ${width}px;">
+                        <div class="gantt-bar ${priorityClass}" style="left: ${left}px; width: ${width}px;">
                             ${task.status}
                         </div>
                     </div>
@@ -629,6 +633,21 @@ class TaskManagementSystem {
 
         container.innerHTML = `
             <div class="gantt-chart">
+                <div class="gantt-legend">
+                    <span class="legend-title">优先级图例：</span>
+                    <span class="legend-item">
+                        <span class="legend-color priority-高"></span>
+                        高优先级
+                    </span>
+                    <span class="legend-item">
+                        <span class="legend-color priority-中"></span>
+                        中优先级
+                    </span>
+                    <span class="legend-item">
+                        <span class="legend-color priority-低"></span>
+                        低优先级
+                    </span>
+                </div>
                 <div class="gantt-header">
                     <div class="gantt-task-header">任务/人员</div>
                     <div class="gantt-timeline-header">
