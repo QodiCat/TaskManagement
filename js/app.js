@@ -204,9 +204,42 @@ class TaskManagementSystem {
 
     // 任务管理功能
     showAddTaskModal() {
+        // 重置表单状态
+        document.getElementById('taskLevel').disabled = false;
+        document.getElementById('parentTask').disabled = false;
+        document.getElementById('taskName').placeholder = '输入任务名称...';
+        
         this.updateParentTaskOptions();
         document.getElementById('addTaskModal').style.display = 'block';
         document.getElementById('taskName').focus();
+    }
+
+    showAddSubTaskModal(parentTaskId) {
+        const parentTask = this.tasks.find(t => t.id === parentTaskId);
+        if (!parentTask) return;
+
+        // 预设子任务的级别和父任务
+        const childLevel = parentTask.level + 1;
+        if (childLevel > 3) {
+            alert('最多只支持三级任务');
+            return;
+        }
+
+        // 打开添加任务模态框
+        document.getElementById('addTaskModal').style.display = 'block';
+        
+        // 设置默认值
+        document.getElementById('taskLevel').value = childLevel;
+        document.getElementById('parentTask').innerHTML = `<option value="${parentTaskId}" selected>${parentTask.name}</option>`;
+        document.getElementById('parentTask').value = parentTaskId;
+        
+        // 禁用级别选择（因为是固定的子任务级别）
+        document.getElementById('taskLevel').disabled = true;
+        document.getElementById('parentTask').disabled = true;
+        
+        // 聚焦到任务名称输入框
+        document.getElementById('taskName').focus();
+        document.getElementById('taskName').placeholder = `输入${parentTask.name}的子任务名称...`;
     }
 
     updateParentTaskOptions() {
@@ -397,6 +430,11 @@ class TaskManagementSystem {
                                 ${task.description ? `<p style="margin-top: 0.5rem; color: #6c757d;">${task.description}</p>` : ''}
                             </div>
                             <div class="task-actions" onclick="event.stopPropagation()">
+                                ${task.level < 3 ? `
+                                    <button class="btn btn-info btn-sm" onclick="taskManager.showAddSubTaskModal(${task.id})">
+                                        <i class="fas fa-plus"></i> 添加子任务
+                                    </button>
+                                ` : ''}
                                 ${!task.assignedTo ? `
                                     <button class="btn btn-primary btn-sm" onclick="taskManager.showAssignTaskModal(${task.id})">
                                         <i class="fas fa-user-plus"></i> 分配
@@ -662,6 +700,14 @@ class TaskManagementSystem {
     // 模态框功能
     closeModal(modal) {
         modal.style.display = 'none';
+        
+        // 如果关闭的是添加任务模态框，重置表单状态
+        if (modal.id === 'addTaskModal') {
+            document.getElementById('taskLevel').disabled = false;
+            document.getElementById('parentTask').disabled = false;
+            document.getElementById('taskName').placeholder = '输入任务名称...';
+            document.getElementById('addTaskForm').reset();
+        }
     }
 }
 
