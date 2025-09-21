@@ -31,6 +31,7 @@
         ref="tasksViewRef"
         @showAddTaskModal="handleShowAddTaskModal"
         @showAssignTaskModal="handleShowAssignTaskModal"
+        @showAddProjectModal="handleShowAddProjectModal"
       />
       <GanttView
         v-if="activeTab === 'gantt'"
@@ -60,6 +61,12 @@
       @close="closeModal('assignTask')"
       @taskAssigned="onTaskAssigned"
     />
+    <AddProjectModal
+      :show="modals.addProject"
+      :parentProjectId="currentParentProjectId"
+      @close="closeModal('addProject')"
+      @projectAdded="onProjectAdded"
+    />
   </div>
 </template>
 
@@ -73,10 +80,12 @@ import LogsView from './components/views/LogsView.vue'
 import AddPersonModal from './components/modals/AddPersonModal.vue'
 import AddTaskModal from './components/modals/AddTaskModal.vue'
 import AssignTaskModal from './components/modals/AssignTaskModal.vue'
+import AddProjectModal from './components/modals/AddProjectModal.vue'
 
 const activeTab = ref('personnel')
 const currentParentTaskId = ref(null)
 const currentAssignTaskId = ref(null)
+const currentParentProjectId = ref(null)
 
 const tabs = [
   { id: 'personnel', name: '人员管理' },
@@ -88,7 +97,8 @@ const tabs = [
 const modals = reactive({
   addPerson: false,
   addTask: false,
-  assignTask: false
+  assignTask: false,
+  addProject: false
 })
 
 // 组件引用
@@ -118,6 +128,11 @@ const handleShowAssignTaskModal = (taskId) => {
   modals.assignTask = true
 }
 
+const handleShowAddProjectModal = (parentProjectId = null) => {
+  currentParentProjectId.value = parentProjectId
+  modals.addProject = true
+}
+
 const closeModal = (modalName) => {
   modals[modalName] = false
   if (modalName === 'addTask') {
@@ -125,6 +140,9 @@ const closeModal = (modalName) => {
   }
   if (modalName === 'assignTask') {
     currentAssignTaskId.value = null
+  }
+  if (modalName === 'addProject') {
+    currentParentProjectId.value = null
   }
 }
 
@@ -161,6 +179,15 @@ const onTaskAssigned = async (task) => {
   // 添加日志
   const person = await getPersonById(task.assignedTo)
   await addLog('assign', `将任务"${task.name}"分配给了${person.name}`)
+}
+
+const onProjectAdded = async (project) => {
+  // 刷新任务视图（因为项目选择器需要更新）
+  if (tasksViewRef.value) {
+    tasksViewRef.value.loadTasks()
+  }
+  // 添加日志
+  await addLog('create', `创建了新项目：${project.name}`)
 }
 
 const getPersonById = async (personId) => {

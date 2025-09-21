@@ -2,6 +2,21 @@
   <div id="gantt" class="tab-content">
     <div class="section-header">
       <h2><i class="fas fa-chart-gantt"></i> 甘特图</h2>
+      <div class="header-controls">
+        <div class="project-filter">
+          <label for="ganttProjectSelect">筛选项目：</label>
+          <select id="ganttProjectSelect" v-model="selectedProjectId" @change="renderGantt">
+            <option value="">所有项目</option>
+            <option
+              v-for="project in projectOptions"
+              :key="project.id"
+              :value="project.id"
+            >
+              {{ project.name }}
+            </option>
+          </select>
+        </div>
+      </div>
       <div class="info-text">
         <small><i class="fas fa-info-circle"></i> 仅显示未完成的已分配任务</small>
       </div>
@@ -67,10 +82,43 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
-import { tasks, personnel } from '@/utils/dataStore.js'
+import { tasks, personnel, projects } from '@/utils/dataStore.js'
 
 const dateRange = ref([])
 const ganttTasks = ref([])
+const selectedProjectId = ref('')
+
+// 构建项目层级选项
+const projectOptions = computed(() => {
+  const buildProjectTree = (parentId = null, level = 0) => {
+    return projects.value
+      .filter(project => {
+        // 统一处理parentId的比较，空字符串和null都视为根项目
+        const projectParentId = project.parentId === '' || project.parentId === null ? null : project.parentId
+        return projectParentId === parentId
+      })
+      .map(project => ({
+        ...project,
+        level,
+        children: buildProjectTree(project.id, level + 1)
+      }))
+      .flat()
+  }
+  
+  const flattenProjects = (projects, prefix = '') => {
+    return projects.flatMap(project => [
+      {
+        id: project.id,
+        name: prefix + project.name,
+        level: project.level
+      },
+      ...flattenProjects(project.children || [], prefix + '  ')
+    ])
+  }
+  
+  const tree = buildProjectTree()
+  return flattenProjects(tree)
+})
 
 const loadData = () => {
   try {
@@ -82,10 +130,27 @@ const loadData = () => {
 }
 
 const renderGantt = () => {
+  // 获取所有相关的项目ID（包括子项目）
+  const getRelatedProjectIds = (projectId) => {
+    const ids = [projectId]
+    const addChildren = (parentId) => {
+      const children = projects.value.filter(p => p.parentId === parentId)
+      children.forEach(child => {
+        ids.push(child.id)
+        addChildren(child.id)
+      })
+    }
+    addChildren(projectId)
+    return ids
+  }
+
+  const relatedProjectIds = selectedProjectId.value ? getRelatedProjectIds(selectedProjectId.value) : null
+
   const tasksWithAssignment = tasks.value.filter(task =>
     task.assignedTo &&
     (task.plannedStartTime || task.actualStartTime) &&
-    task.status !== '已完成'
+    task.status !== '已完成' &&
+    (!relatedProjectIds || relatedProjectIds.includes(task.projectId))
   )
 
   if (tasksWithAssignment.length === 0) {
@@ -178,6 +243,70 @@ defineExpose({
 
 <style scoped>
 /* 甘特图样式 */
+.section-header {
+  padding: var(--spacing-xl);
+  border-bottom: 2px solid var(--gray-200);
+  background: linear-gradient(135deg, var(--gray-50) 0%, white 100%);
+  margin-bottom: var(--spacing-lg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.section-header h2 {
+  margin: 0;
+  color: var(--gray-800);
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.section-header h2 i {
+  color: var(--primary-color);
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.project-filter {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.project-filter label {
+  font-weight: 600;
+  color: var(--gray-700);
+  margin: 0;
+}
+
+.project-filter select {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 2px solid var(--gray-300);
+  border-radius: var(--border-radius-md);
+  background: white;
+  font-size: var(--font-size-sm);
+  min-width: 200px;
+  transition: border-color var(--transition-normal);
+}
+
+.project-filter select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+}
+
+.info-text {
+  font-size: var(--font-size-sm);
+  color: var(--gray-600);
+  margin-top: var(--spacing-sm);
+}
+
 .gantt-container {
   padding: 1rem;
 }

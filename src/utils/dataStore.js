@@ -5,12 +5,14 @@ import { ref, reactive } from 'vue'
 const personnel = ref([])
 const tasks = ref([])
 const logs = ref([])
+const projects = ref([])
 
-// 文件路径配置
+// 文件路径配置 (API端点)
 const DATA_PATHS = {
-  personnel: '/data/personnel.json',
-  tasks: '/data/tasks.json',
-  logs: '/data/logs.json'
+  personnel: '/api/personnel',
+  tasks: '/api/tasks',
+  logs: '/api/logs',
+  projects: '/api/projects'
 }
 
 // 工具函数：读取JSON文件
@@ -27,11 +29,17 @@ async function readJsonFile(path, defaultValue = []) {
   }
 }
 
-// 工具函数：写入JSON文件 (由于浏览器安全限制，这里使用localStorage模拟)
-function writeJsonFile(key, data) {
+// 工具函数：写入JSON文件 (通过API端点)
+async function writeJsonFile(key, data) {
   try {
-    localStorage.setItem(key, JSON.stringify(data, null, 2))
-    return true
+    const response = await fetch(`/api/${key}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data, null, 2)
+    })
+    return response.ok
   } catch (error) {
     console.error(`保存数据 ${key} 失败:`, error)
     return false
@@ -41,51 +49,17 @@ function writeJsonFile(key, data) {
 // 初始化数据
 async function initializeData() {
   try {
-    // 首先尝试从localStorage读取，如果没有则使用默认数据
-    const personnelData = localStorage.getItem('personnel')
-    const tasksData = localStorage.getItem('tasks')
-    const logsData = localStorage.getItem('logs')
-
-    if (personnelData) {
-      personnel.value = JSON.parse(personnelData)
-    } else {
-      // 如果没有本地数据，尝试从JSON文件读取，否则使用空数组
-      try {
-        personnel.value = await readJsonFile(DATA_PATHS.personnel, [])
-      } catch {
-        personnel.value = []
-      }
-      writeJsonFile('personnel', personnel.value)
-    }
-
-    if (tasksData) {
-      tasks.value = JSON.parse(tasksData)
-    } else {
-      // 如果没有本地数据，尝试从JSON文件读取，否则使用空数组
-      try {
-        tasks.value = await readJsonFile(DATA_PATHS.tasks, [])
-      } catch {
-        tasks.value = []
-      }
-      writeJsonFile('tasks', tasks.value)
-    }
-
-    if (logsData) {
-      logs.value = JSON.parse(logsData)
-    } else {
-      // 如果没有本地数据，尝试从JSON文件读取，否则使用空数组
-      try {
-        logs.value = await readJsonFile(DATA_PATHS.logs, [])
-      } catch {
-        logs.value = []
-      }
-      writeJsonFile('logs', logs.value)
-    }
+    // 从JSON文件读取数据
+    personnel.value = await readJsonFile(DATA_PATHS.personnel, [])
+    tasks.value = await readJsonFile(DATA_PATHS.tasks, [])
+    logs.value = await readJsonFile(DATA_PATHS.logs, [])
+    projects.value = await readJsonFile(DATA_PATHS.projects, [])
     
     console.log('数据初始化完成:', { 
       personnel: personnel.value.length, 
       tasks: tasks.value.length, 
-      logs: logs.value.length 
+      logs: logs.value.length,
+      projects: projects.value.length
     })
   } catch (error) {
     console.error('初始化数据失败:', error)
@@ -125,6 +99,82 @@ const personnelActions = {
   // 根据ID查找人员
   findById(id) {
     return personnel.value.find(p => p.id === id)
+  }
+}
+
+// 项目管理函数
+const projectsActions = {
+  // 获取所有项目
+  getAll() {
+    return projects.value
+  },
+
+  // 添加项目
+  add(project) {
+    const newProject = {
+      id: Date.now(),
+      parentId: project.parentId || null,
+      ...project,
+      createdAt: new Date().toISOString()
+    }
+    projects.value.push(newProject)
+    writeJsonFile('projects', projects.value)
+    return newProject
+  },
+
+  // 删除项目（递归删除子项目）
+  delete(projectId) {
+    const projectToDelete = projects.value.find(p => p.id === projectId)
+    if (!projectToDelete) return false
+
+    // 递归删除子项目
+    const deleteProjectAndChildren = (id) => {
+      const children = projects.value.filter(p => p.parentId === id)
+      children.forEach(child => deleteProjectAndChildren(child.id))
+      projects.value = projects.value.filter(p => p.id !== id)
+    }
+
+    deleteProjectAndChildren(projectId)
+    writeJsonFile('projects', projects.value)
+    return true
+  },
+
+  // 更新项目
+  update(projectId, updates) {
+    const index = projects.value.findIndex(p => p.id === projectId)
+    if (index !== -1) {
+      projects.value[index] = { ...projects.value[index], ...updates }
+      writeJsonFile('projects', projects.value)
+      return projects.value[index]
+    }
+    return null
+  },
+
+  // 根据ID查找项目
+  findById(id) {
+    return projects.value.find(p => p.id === id)
+  },
+
+  // 获取子项目
+  getChildren(parentId) {
+    return projects.value.filter(p => p.parentId === parentId)
+  },
+
+  // 获取项目层级路径
+  getProjectPath(projectId) {
+    const path = []
+    let currentProject = projects.value.find(p => p.id === projectId)
+
+    while (currentProject) {
+      path.unshift(currentProject.name)
+      if (currentProject.parentId) {
+        currentProject = projects.value.find(p => p.id === currentProject.parentId)
+      } else {
+        break
+      }
+    }
+
+    return path.join(' > ')
   }
 }
 
@@ -238,8 +288,10 @@ export {
   personnel,
   tasks,
   logs,
+  projects,
   personnelActions,
   tasksActions,
   logsActions,
+  projectsActions,
   initializeData
 }

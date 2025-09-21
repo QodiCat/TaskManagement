@@ -34,6 +34,30 @@
             </select>
           </div>
           <div class="form-group" v-if="!isSubTask">
+            <label for="taskProject">所属项目：</label>
+            <select id="taskProject" v-model="form.projectId">
+              <option value="">无项目</option>
+              <option
+                v-for="project in projects"
+                :key="project.id"
+                :value="project.id"
+              >
+                {{ project.name }}
+              </option>
+            </select>
+          </div>
+          <div class="form-group" v-else>
+            <label for="taskProject">所属项目：</label>
+            <input
+              type="text"
+              :value="parentProjectName"
+              readonly
+              class="form-control"
+              style="background-color: #f8f9fa; cursor: not-allowed;"
+            />
+            <small class="text-muted">子任务自动继承父任务的项目</small>
+          </div>
+          <div class="form-group" v-if="!isSubTask">
             <label for="parentTask">上级任务：</label>
             <select id="parentTask" v-model="form.parentId">
               <option value="">无（一级任务）</option>
@@ -75,7 +99,7 @@
 
 <script setup>
 import { ref, reactive, computed, watch } from 'vue'
-import { tasks, tasksActions } from '@/utils/dataStore.js'
+import { tasks, projects, tasksActions } from '@/utils/dataStore.js'
 
 const props = defineProps({
   show: {
@@ -91,6 +115,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'taskAdded'])
 
 const parentTaskName = ref('')
+const parentProjectName = ref('')
 
 const isSubTask = computed(() => !!props.parentTaskId)
 
@@ -100,7 +125,8 @@ const form = reactive({
   level: 1,
   parentId: null,
   priority: '中',
-  estimatedHours: 0
+  estimatedHours: 0,
+  projectId: null
 })
 
 const availableParents = computed(() => {
@@ -123,6 +149,9 @@ const closeModal = () => {
   form.parentId = null
   form.priority = '中'
   form.estimatedHours = 0
+  form.projectId = null
+  parentTaskName.value = ''
+  parentProjectName.value = ''
 }
 
 const addTask = () => {
@@ -153,10 +182,22 @@ watch(() => props.parentTaskId, (newId) => {
       parentTaskName.value = parentTask.name
       form.level = parentTask.level + 1
       form.parentId = newId
+      // 子任务自动继承父任务的项目
+      form.projectId = parentTask.projectId
+      
+      // 设置父项目名称显示
+      if (parentTask.projectId) {
+        const parentProject = projects.value.find(p => p.id === parentTask.projectId)
+        parentProjectName.value = parentProject ? parentProject.name : '未知项目'
+      } else {
+        parentProjectName.value = '无项目'
+      }
     }
   } else if (!newId) {
     form.level = 1
     form.parentId = null
+    form.projectId = null
+    parentProjectName.value = ''
   }
 })
 
@@ -177,6 +218,16 @@ watch(() => props.show, (show) => {
         parentTaskName.value = parentTask.name
         form.level = childLevel
         form.parentId = props.parentTaskId
+        // 子任务自动继承父任务的项目
+        form.projectId = parentTask.projectId
+        
+        // 设置父项目名称显示
+        if (parentTask.projectId) {
+          const parentProject = projects.value.find(p => p.id === parentTask.projectId)
+          parentProjectName.value = parentProject ? parentProject.name : '未知项目'
+        } else {
+          parentProjectName.value = '无项目'
+        }
       }
     }
   }

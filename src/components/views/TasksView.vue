@@ -2,13 +2,38 @@
   <div id="tasks" class="tab-content">
     <div class="section-header">
       <h2><i class="fas fa-list-alt"></i> 功能需求表</h2>
-      <div class="header-actions">
-        <button id="toggleAllBtn" class="btn btn-secondary" @click="toggleAllTasks">
-          <i class="fas fa-compress-alt"></i> 全部折叠
-        </button>
-        <button id="addTaskBtn" class="btn btn-primary" @click="showAddTaskModal">
-          <i class="fas fa-plus"></i> 新建功能/任务
-        </button>
+      <div class="header-controls">
+        <div class="project-selector">
+          <label for="projectSelect">选择项目：</label>
+          <select id="projectSelect" v-model="selectedProjectId" @change="onProjectChange">
+            <option value="">所有项目</option>
+            <option
+              v-for="project in projectOptions"
+              :key="project.id"
+              :value="project.id"
+            >
+              {{ project.name }}
+            </option>
+          </select>
+          <button class="btn btn-outline-primary btn-sm" @click="showAddProjectModal">
+            <i class="fas fa-plus"></i> 新建项目
+          </button>
+          <button 
+            v-if="selectedProjectId" 
+            class="btn btn-outline-success btn-sm" 
+            @click="showAddSubProjectModal"
+          >
+            <i class="fas fa-plus"></i> 新建子项目
+          </button>
+        </div>
+        <div class="header-actions">
+          <button id="toggleAllBtn" class="btn btn-secondary" @click="toggleAllTasks">
+            <i class="fas fa-compress-alt"></i> 全部折叠
+          </button>
+          <button id="addTaskBtn" class="btn btn-primary" @click="showAddTaskModal">
+            <i class="fas fa-plus"></i> 新建功能/任务
+          </button>
+        </div>
       </div>
     </div>
     <div class="tasks-container" id="tasksContainer">
@@ -241,9 +266,43 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
-import { tasks, personnel, tasksActions } from '@/utils/dataStore.js'
+import { tasks, personnel, projects, tasksActions, projectsActions } from '@/utils/dataStore.js'
 
-const emit = defineEmits(['showAddTaskModal', 'showAssignTaskModal'])
+const emit = defineEmits(['showAddTaskModal', 'showAssignTaskModal', 'showAddProjectModal'])
+
+const selectedProjectId = ref('')
+
+// 构建项目层级选项
+const projectOptions = computed(() => {
+  const buildProjectTree = (parentId = null, level = 0) => {
+    return projects.value
+      .filter(project => {
+        // 统一处理parentId的比较，空字符串和null都视为根项目
+        const projectParentId = project.parentId === '' || project.parentId === null ? null : project.parentId
+        return projectParentId === parentId
+      })
+      .map(project => ({
+        ...project,
+        level,
+        children: buildProjectTree(project.id, level + 1)
+      }))
+      .flat()
+  }
+  
+  const flattenProjects = (projects, prefix = '') => {
+    return projects.flatMap(project => [
+      {
+        id: project.id,
+        name: prefix + project.name,
+        level: project.level
+      },
+      ...flattenProjects(project.children || [], prefix + '  ')
+    ])
+  }
+  
+  const tree = buildProjectTree()
+  return flattenProjects(tree)
+})
 
 const loadTasks = () => {
   // 数据已经通过响应式系统自动更新，无需手动加载
@@ -251,12 +310,30 @@ const loadTasks = () => {
 
 // 将renderTaskTree转换为响应式计算属性
 const renderTaskTree = computed(() => {
+  // 获取所有相关的项目ID（包括子项目）
+  const getRelatedProjectIds = (projectId) => {
+    const ids = [projectId]
+    const addChildren = (parentId) => {
+      const children = projects.value.filter(p => p.parentId === parentId)
+      children.forEach(child => {
+        ids.push(child.id)
+        addChildren(child.id)
+      })
+    }
+    addChildren(projectId)
+    return ids
+  }
+
+  const relatedProjectIds = selectedProjectId.value ? getRelatedProjectIds(selectedProjectId.value) : null
+
   const buildTree = (parentId = null) => {
     return tasks.value
       .filter(task => {
         // 处理parentId为null、空字符串或undefined的情况
         const taskParentId = task.parentId === '' || task.parentId === undefined ? null : task.parentId
-        return taskParentId === parentId
+        // 根据选择的项目筛选（包括子项目）
+        const projectMatch = !relatedProjectIds || relatedProjectIds.includes(task.projectId)
+        return taskParentId === parentId && projectMatch
       })
       .map(task => {
         const assignedPerson = task.assignedTo ? personnel.value.find(p => p.id === task.assignedTo) : null
@@ -328,6 +405,18 @@ const showAssignTaskModal = (taskId) => {
   emit('showAssignTaskModal', taskId)
 }
 
+const showAddProjectModal = () => {
+  emit('showAddProjectModal')
+}
+
+const showAddSubProjectModal = () => {
+  emit('showAddProjectModal', selectedProjectId.value)
+}
+
+const onProjectChange = () => {
+  // 项目改变时重新渲染任务树
+}
+
 const startTask = (taskId) => {
   try {
     tasksActions.update(taskId, {
@@ -396,6 +485,41 @@ defineExpose({
 
 .section-header h2 i {
   color: var(--primary-color);
+}
+
+.header-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  align-items: flex-end;
+}
+
+.project-selector {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.project-selector label {
+  font-weight: 600;
+  color: var(--gray-700);
+  margin: 0;
+}
+
+.project-selector select {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 2px solid var(--gray-300);
+  border-radius: var(--border-radius-md);
+  background: white;
+  font-size: var(--font-size-sm);
+  min-width: 200px;
+  transition: border-color var(--transition-normal);
+}
+
+.project-selector select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
 }
 
 .header-actions {
