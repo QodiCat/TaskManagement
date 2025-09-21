@@ -423,16 +423,24 @@ class TaskManagementSystem {
 
         // 打开添加任务模态框
         document.getElementById('addTaskModal').style.display = 'block';
-        
+
+        // 临时禁用change事件监听器，避免设置值时触发updateParentTaskOptions
+        const taskLevelSelect = document.getElementById('taskLevel');
+        const changeHandler = () => this.updateParentTaskOptions();
+        taskLevelSelect.removeEventListener('change', changeHandler);
+
         // 设置默认值
-        document.getElementById('taskLevel').value = childLevel;
+        taskLevelSelect.value = childLevel;
         document.getElementById('parentTask').innerHTML = `<option value="${parentTaskId}" selected>${parentTask.name}</option>`;
         document.getElementById('parentTask').value = parentTaskId;
-        
+
+        // 重新添加事件监听器
+        taskLevelSelect.addEventListener('change', changeHandler);
+
         // 禁用级别选择（因为是固定的子任务级别）
         document.getElementById('taskLevel').disabled = true;
         document.getElementById('parentTask').disabled = true;
-        
+
         // 聚焦到任务名称输入框
         document.getElementById('taskName').focus();
         document.getElementById('taskName').placeholder = `输入${parentTask.name}的子任务名称...`;
@@ -462,11 +470,15 @@ class TaskManagementSystem {
         const form = document.getElementById('addTaskForm');
         const formData = new FormData(form);
 
+        // 确保正确获取level和parentId，即使字段被禁用
+        const levelValue = document.getElementById('taskLevel').value;
+        const parentValue = document.getElementById('parentTask').value;
+
         const task = {
             name: formData.get('taskName'),
             description: formData.get('taskDescription'),
-            level: parseInt(formData.get('taskLevel')),
-            parentId: formData.get('parentTask') ? parseInt(formData.get('parentTask')) : null,
+            level: parseInt(levelValue || formData.get('taskLevel')),
+            parentId: parentValue ? parseInt(parentValue) : (formData.get('parentTask') ? parseInt(formData.get('parentTask')) : null),
             priority: formData.get('taskPriority'),
             estimatedHours: parseInt(formData.get('estimatedHours')) || 0,
             status: '未开始',
@@ -476,6 +488,8 @@ class TaskManagementSystem {
             plannedStartTime: null,
             plannedEndTime: null
         };
+
+        console.log('创建任务:', task); // 调试日志
 
         try {
             // 发送到服务器
