@@ -1,24 +1,180 @@
 // 项目管理系统 JavaScript
 class TaskManagementSystem {
     constructor() {
-        this.personnel = JSON.parse(localStorage.getItem('personnel')) || [];
-        this.tasks = JSON.parse(localStorage.getItem('tasks')) || [];
-        this.logs = JSON.parse(localStorage.getItem('logs')) || [];
+        this.personnel = [];
+        this.tasks = [];
+        this.logs = [];
         this.currentTaskId = 1;
         this.currentPersonId = 1;
         this.currentLogId = 1;
-        
+        this.db = null;
+
         this.initializeApp();
     }
 
-    initializeApp() {
+    async initializeApp() {
+        await this.loadData();
         this.initializeEventListeners();
-        this.loadData();
         this.renderPersonnel();
         this.renderTasks();
         this.renderGantt();
         this.renderLogs();
     }
+
+    async initializeIndexedDB() {
+        // 已移除，使用服务器端存储
+        return Promise.resolve();
+    }
+
+    loadFromLocalStorage() {
+        console.log('从localStorage加载数据...');
+        try {
+            this.personnel = JSON.parse(localStorage.getItem('personnel') || '[]');
+            this.tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+            this.logs = JSON.parse(localStorage.getItem('logs') || '[]');
+
+            // 更新ID计数器
+            if (this.personnel.length > 0) {
+                this.currentPersonId = Math.max(...this.personnel.map(p => p.id || 0)) + 1;
+            }
+            if (this.tasks.length > 0) {
+                this.currentTaskId = Math.max(...this.tasks.map(t => t.id || 0)) + 1;
+            }
+            if (this.logs.length > 0) {
+                this.currentLogId = Math.max(...this.logs.map(l => l.id || 0)) + 1;
+            }
+        } catch (error) {
+            console.error('从localStorage加载数据失败:', error);
+            this.personnel = [];
+            this.tasks = [];
+            this.logs = [];
+        }
+    }
+
+    saveToLocalStorage() {
+        try {
+            localStorage.setItem('personnel', JSON.stringify(this.personnel));
+            localStorage.setItem('tasks', JSON.stringify(this.tasks));
+            localStorage.setItem('logs', JSON.stringify(this.logs));
+            console.log('数据已保存到localStorage');
+        } catch (error) {
+            console.error('保存到localStorage失败:', error);
+        }
+    }
+
+    async loadData() {
+        try {
+            // 并行加载所有数据
+            const [personnelResponse, tasksResponse, logsResponse] = await Promise.all([
+                fetch('/api/personnel'),
+                fetch('/api/tasks'),
+                fetch('/api/logs')
+            ]);
+
+            this.personnel = await personnelResponse.json();
+            this.tasks = await tasksResponse.json();
+            this.logs = await logsResponse.json();
+
+            // 更新ID计数器
+            if (this.personnel.length > 0) {
+                this.currentPersonId = Math.max(...this.personnel.map(p => p.id)) + 1;
+            }
+            if (this.tasks.length > 0) {
+                this.currentTaskId = Math.max(...this.tasks.map(t => t.id)) + 1;
+            }
+            if (this.logs.length > 0) {
+                this.currentLogId = Math.max(...this.logs.map(l => l.id)) + 1;
+            }
+
+            console.log('数据加载成功:', {
+                personnel: this.personnel.length,
+                tasks: this.tasks.length,
+                logs: this.logs.length
+            });
+        } catch (error) {
+            console.error('加载数据失败:', error);
+            // 如果API不可用，使用空数据
+            this.personnel = [];
+            this.tasks = [];
+            this.logs = [];
+        }
+    }
+
+    async getAllFromStore(storeName) {
+        // 已移除，使用服务器端存储
+        return [];
+    }
+
+    async saveToStore(storeName, data) {
+        if (!this.db) {
+            console.warn('IndexedDB未初始化，使用本地存储作为备用');
+            // 备用方案：使用localStorage
+            const allData = JSON.parse(localStorage.getItem(storeName) || '[]');
+            const existingIndex = allData.findIndex(item => item.id === data.id);
+            if (existingIndex >= 0) {
+                allData[existingIndex] = data;
+            } else {
+                allData.push(data);
+            }
+            localStorage.setItem(storeName, JSON.stringify(allData));
+            return data.id || Date.now();
+        }
+
+        return new Promise((resolve, reject) => {
+            try {
+                const transaction = this.db.transaction([storeName], 'readwrite');
+                const store = transaction.objectStore(storeName);
+                const request = store.put(data);
+
+                request.onsuccess = () => {
+                    resolve(request.result);
+                };
+
+                request.onerror = () => {
+                    reject(request.error);
+                };
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+
+    async deleteFromStore(storeName, id) {
+        if (!this.db) {
+            console.warn('IndexedDB未初始化，使用本地存储作为备用');
+            // 备用方案：使用localStorage
+            const allData = JSON.parse(localStorage.getItem(storeName) || '[]');
+            const filteredData = allData.filter(item => item.id !== id);
+            localStorage.setItem(storeName, JSON.stringify(filteredData));
+            return;
+        }
+
+        return new Promise((resolve, reject) => {
+            try {
+                const transaction = this.db.transaction([storeName], 'readwrite');
+                const store = transaction.objectStore(storeName);
+                const request = store.delete(id);
+
+                request.onsuccess = () => {
+                    resolve();
+                };
+
+                request.onerror = () => {
+                    reject(request.error);
+                };
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+
+    // 已移除，使用服务器端存储
+
+    // 已移除，使用服务器端存储
+
+    // 已移除，使用服务器端存储
+
+    // 已移除，使用服务器端存储
 
     initializeEventListeners() {
         // 标签页切换
@@ -81,24 +237,9 @@ class TaskManagementSystem {
         });
     }
 
-    loadData() {
-        // 如果有保存的数据，更新ID计数器
-        if (this.personnel.length > 0) {
-            this.currentPersonId = Math.max(...this.personnel.map(p => p.id)) + 1;
-        }
-        if (this.tasks.length > 0) {
-            this.currentTaskId = Math.max(...this.tasks.map(t => t.id)) + 1;
-        }
-        if (this.logs.length > 0) {
-            this.currentLogId = Math.max(...this.logs.map(l => l.id)) + 1;
-        }
-    }
+    // 已移除，使用服务器端存储
 
-    saveData() {
-        localStorage.setItem('personnel', JSON.stringify(this.personnel));
-        localStorage.setItem('tasks', JSON.stringify(this.tasks));
-        localStorage.setItem('logs', JSON.stringify(this.logs));
-    }
+    // 已移除，使用服务器端存储
 
     switchTab(tabName) {
         // 更新标签页状态
@@ -123,47 +264,102 @@ class TaskManagementSystem {
         document.getElementById('personName').focus();
     }
 
-    addPerson() {
+    async addPerson() {
         const form = document.getElementById('addPersonForm');
         const formData = new FormData(form);
-        
+
         const person = {
-            id: this.currentPersonId++,
             name: formData.get('personName'),
             role: formData.get('personRole'),
-            email: formData.get('personEmail'),
-            createdAt: new Date().toISOString()
+            email: formData.get('personEmail')
         };
 
-        this.personnel.push(person);
-        this.saveData();
-        
-        this.addLog('create', `添加了新人员：${person.name} (${person.role})`);
-        this.renderPersonnel();
-        this.updateAssignPersonOptions();
-        
-        this.closeModal(document.getElementById('addPersonModal'));
-        form.reset();
+        try {
+            // 发送到服务器
+            const response = await fetch('/api/personnel', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(person)
+            });
+
+            if (!response.ok) {
+                throw new Error('添加人员失败');
+            }
+
+            const savedPerson = await response.json();
+
+            // 更新本地数组
+            this.personnel.push(savedPerson);
+
+            await this.addLog('create', `添加了新人员：${savedPerson.name} (${savedPerson.role})`);
+            this.renderPersonnel();
+            this.updateAssignPersonOptions();
+
+            this.closeModal(document.getElementById('addPersonModal'));
+            form.reset();
+
+            console.log('人员添加成功:', savedPerson);
+        } catch (error) {
+            console.error('添加人员失败:', error);
+            alert('添加人员失败，请重试');
+        }
     }
 
-    deletePerson(personId) {
+    async updateTaskOnServer(task) {
+        try {
+            const response = await fetch(`/api/tasks/${task.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(task)
+            });
+
+            if (!response.ok) {
+                console.error('更新任务到服务器失败:', task.id);
+            }
+        } catch (error) {
+            console.error('更新任务到服务器异常:', error);
+        }
+    }
+
+    async deletePerson(personId) {
         if (confirm('确定要删除这个人员吗？')) {
             const person = this.personnel.find(p => p.id === personId);
-            this.personnel = this.personnel.filter(p => p.id !== personId);
-            
-            // 取消该人员的所有任务分配
-            this.tasks.forEach(task => {
-                if (task.assignedTo === personId) {
-                    task.assignedTo = null;
-                    task.status = '未开始';
+
+            try {
+                // 从服务器删除
+                const response = await fetch(`/api/personnel/${personId}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    throw new Error('删除人员失败');
                 }
-            });
-            
-            this.saveData();
-            this.addLog('delete', `删除了人员：${person.name}`);
-            this.renderPersonnel();
-            this.renderTasks();
-            this.renderGantt();
+
+                // 更新本地数组
+                this.personnel = this.personnel.filter(p => p.id !== personId);
+                this.tasks.forEach(task => {
+                    if (task.assignedTo === personId) {
+                        task.assignedTo = null;
+                        task.status = '未开始';
+                        // 更新任务到服务器
+                        this.updateTaskOnServer(task);
+                    }
+                });
+
+                await this.addLog('delete', `删除了人员：${person.name}`);
+                this.renderPersonnel();
+                this.renderTasks();
+                this.renderGantt();
+
+                console.log('人员删除成功:', personId);
+            } catch (error) {
+                console.error('删除人员失败:', error);
+                alert('删除人员失败，请重试');
+            }
         }
     }
 
@@ -262,12 +458,11 @@ class TaskManagementSystem {
         parentSelect.disabled = selectedLevel === 1;
     }
 
-    addTask() {
+    async addTask() {
         const form = document.getElementById('addTaskForm');
         const formData = new FormData(form);
-        
+
         const task = {
-            id: this.currentTaskId++,
             name: formData.get('taskName'),
             description: formData.get('taskDescription'),
             level: parseInt(formData.get('taskLevel')),
@@ -279,38 +474,73 @@ class TaskManagementSystem {
             actualStartTime: null,
             actualEndTime: null,
             plannedStartTime: null,
-            plannedEndTime: null,
-            createdAt: new Date().toISOString()
+            plannedEndTime: null
         };
 
-        this.tasks.push(task);
-        this.saveData();
-        
-        this.addLog('create', `创建了${task.level}级任务：${task.name}`);
-        this.renderTasks();
-        
-        this.closeModal(document.getElementById('addTaskModal'));
-        form.reset();
+        try {
+            // 发送到服务器
+            const response = await fetch('/api/tasks', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(task)
+            });
+
+            if (!response.ok) {
+                throw new Error('添加任务失败');
+            }
+
+            const savedTask = await response.json();
+
+            // 更新本地数组
+            this.tasks.push(savedTask);
+
+            await this.addLog('create', `创建了${savedTask.level}级任务：${savedTask.name}`);
+            this.renderTasks();
+
+            this.closeModal(document.getElementById('addTaskModal'));
+            form.reset();
+
+            console.log('任务添加成功:', savedTask);
+        } catch (error) {
+            console.error('添加任务失败:', error);
+            alert('添加任务失败，请重试');
+        }
     }
 
-    deleteTask(taskId) {
+    async deleteTask(taskId) {
         if (confirm('确定要删除这个任务吗？这将同时删除所有子任务。')) {
-            const deleteTaskAndChildren = (id) => {
-                // 找到所有子任务
-                const children = this.tasks.filter(task => task.parentId === id);
-                children.forEach(child => deleteTaskAndChildren(child.id));
-                
-                // 删除当前任务
-                this.tasks = this.tasks.filter(task => task.id !== id);
-            };
-
             const task = this.tasks.find(t => t.id === taskId);
-            deleteTaskAndChildren(taskId);
-            
-            this.saveData();
-            this.addLog('delete', `删除了任务：${task.name}`);
-            this.renderTasks();
-            this.renderGantt();
+
+            try {
+                // 从服务器删除
+                const response = await fetch(`/api/tasks/${taskId}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    throw new Error('删除任务失败');
+                }
+
+                // 更新本地数组
+                const deleteFromArray = (id) => {
+                    const children = this.tasks.filter(t => t.parentId === id);
+                    children.forEach(child => deleteFromArray(child.id));
+                    this.tasks = this.tasks.filter(t => t.id !== id);
+                };
+
+                deleteFromArray(taskId);
+
+                await this.addLog('delete', `删除了任务：${task.name}`);
+                this.renderTasks();
+                this.renderGantt();
+
+                console.log('任务删除成功:', taskId);
+            } catch (error) {
+                console.error('删除任务失败:', error);
+                alert('删除任务失败，请重试');
+            }
         }
     }
 
@@ -345,52 +575,112 @@ class TaskManagementSystem {
         });
     }
 
-    assignTask() {
+    async assignTask() {
         const form = document.getElementById('assignTaskForm');
         const formData = new FormData(form);
-        
+
         const taskId = this.currentAssignTaskId;
         const task = this.tasks.find(t => t.id === taskId);
         const personId = parseInt(formData.get('assignPerson'));
         const person = this.personnel.find(p => p.id === personId);
-        
+
+        // 更新任务
         task.assignedTo = personId;
         task.plannedStartTime = formData.get('plannedStartDate');
         task.plannedEndTime = formData.get('plannedEndDate');
-        
-        this.saveData();
-        this.addLog('assign', `将任务"${task.name}"分配给了${person.name}`);
-        this.renderTasks();
-        this.renderGantt();
-        
-        this.closeModal(document.getElementById('assignTaskModal'));
-        form.reset();
+
+        try {
+            // 更新到服务器
+            const response = await fetch(`/api/tasks/${taskId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(task)
+            });
+
+            if (!response.ok) {
+                throw new Error('分配任务失败');
+            }
+
+            await this.addLog('assign', `将任务"${task.name}"分配给了${person.name}`);
+            this.renderTasks();
+            this.renderGantt();
+
+            this.closeModal(document.getElementById('assignTaskModal'));
+            form.reset();
+
+            console.log('任务分配成功:', taskId);
+        } catch (error) {
+            console.error('分配任务失败:', error);
+            alert('分配任务失败，请重试');
+        }
     }
 
-    startTask(taskId) {
+    async startTask(taskId) {
         const task = this.tasks.find(t => t.id === taskId);
         const person = this.personnel.find(p => p.id === task.assignedTo);
-        
+
+        // 更新任务
         task.status = '进行中';
         task.actualStartTime = new Date().toISOString();
-        
-        this.saveData();
-        this.addLog('start', `${person.name}开始了任务"${task.name}"`);
-        this.renderTasks();
-        this.renderGantt();
+
+        try {
+            // 更新到服务器
+            const response = await fetch(`/api/tasks/${taskId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(task)
+            });
+
+            if (!response.ok) {
+                throw new Error('开始任务失败');
+            }
+
+            await this.addLog('start', `${person.name}开始了任务"${task.name}"`);
+            this.renderTasks();
+            this.renderGantt();
+
+            console.log('任务开始成功:', taskId);
+        } catch (error) {
+            console.error('开始任务失败:', error);
+            alert('开始任务失败，请重试');
+        }
     }
 
-    completeTask(taskId) {
+    async completeTask(taskId) {
         const task = this.tasks.find(t => t.id === taskId);
         const person = this.personnel.find(p => p.id === task.assignedTo);
-        
+
+        // 更新任务
         task.status = '已完成';
         task.actualEndTime = new Date().toISOString();
-        
-        this.saveData();
-        this.addLog('complete', `${person.name}完成了任务"${task.name}"`);
-        this.renderTasks();
-        this.renderGantt();
+
+        try {
+            // 更新到服务器
+            const response = await fetch(`/api/tasks/${taskId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(task)
+            });
+
+            if (!response.ok) {
+                throw new Error('完成任务失败');
+            }
+
+            await this.addLog('complete', `${person.name}完成了任务"${task.name}"`);
+            this.renderTasks();
+            this.renderGantt();
+
+            console.log('任务完成成功:', taskId);
+        } catch (error) {
+            console.error('完成任务失败:', error);
+            alert('完成任务失败，请重试');
+        }
     }
 
     renderTasks() {
@@ -420,7 +710,10 @@ class TaskManagementSystem {
                         <div class="task-header" ${hasChildren ? `onclick="taskManager.toggleTaskChildren(${task.id})"` : ''}>
                             ${hasChildren ? `<div class="toggle-icon" data-collapsed="false"><i class="fas fa-minus"></i></div>` : ''}
                             <div class="task-info">
-                                <h4 class="${task.status === '已完成' ? 'completed-task' : ''}">${task.name}</h4>
+                                <h4 class="${task.status === '已完成' ? 'completed-task' : ''}">
+                                    <span class="level-prefix">${task.level === 1 ? '📋' : task.level === 2 ? '📝' : '🔧'}</span>
+                                    ${task.name}
+                                </h4>
                                 <div class="task-meta">
                                     <span class="task-priority ${task.priority}">${task.priority}</span>
                                     <span class="task-status ${task.status}">${task.status}</span>
@@ -499,21 +792,11 @@ class TaskManagementSystem {
         const allTaskChildren = document.querySelectorAll('.task-children');
         const allToggleIcons = document.querySelectorAll('.toggle-icon');
         
-        // 检查当前状态 - 如果有任何折叠的，就全部展开；如果全部展开，就全部折叠
-        const hasCollapsed = Array.from(allTaskChildren).some(child => child.classList.contains('collapsed'));
+        // 检查是否全部展开（没有折叠的子任务）
+        const allExpanded = Array.from(allTaskChildren).every(child => !child.classList.contains('collapsed'));
         
-        if (hasCollapsed) {
-            // 全部展开
-            allTaskChildren.forEach(child => {
-                child.classList.remove('collapsed');
-            });
-            allToggleIcons.forEach(icon => {
-                icon.innerHTML = '<i class="fas fa-minus"></i>';
-                icon.setAttribute('data-collapsed', 'false');
-            });
-            toggleBtn.innerHTML = '<i class="fas fa-compress-alt"></i> 全部折叠';
-        } else {
-            // 全部折叠
+        if (allExpanded) {
+            // 当前全部展开，执行全部折叠
             allTaskChildren.forEach(child => {
                 child.classList.add('collapsed');
             });
@@ -522,6 +805,16 @@ class TaskManagementSystem {
                 icon.setAttribute('data-collapsed', 'true');
             });
             toggleBtn.innerHTML = '<i class="fas fa-expand-alt"></i> 全部展开';
+        } else {
+            // 当前有折叠的，执行全部展开
+            allTaskChildren.forEach(child => {
+                child.classList.remove('collapsed');
+            });
+            allToggleIcons.forEach(icon => {
+                icon.innerHTML = '<i class="fas fa-minus"></i>';
+                icon.setAttribute('data-collapsed', 'false');
+            });
+            toggleBtn.innerHTML = '<i class="fas fa-compress-alt"></i> 全部折叠';
         }
     }
 
@@ -660,17 +953,50 @@ class TaskManagementSystem {
     }
 
     // 日志功能
-    addLog(type, message) {
+    async addLog(type, message) {
         const log = {
-            id: this.currentLogId++,
             type: type,
-            message: message,
-            timestamp: new Date().toISOString()
+            message: message
         };
-        
-        this.logs.unshift(log); // 添加到开头
-        this.saveData();
-        this.renderLogs();
+
+        try {
+            // 发送到服务器
+            const response = await fetch('/api/logs', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(log)
+            });
+
+            if (response.ok) {
+                const savedLog = await response.json();
+                // 更新本地数组
+                this.logs.unshift(savedLog);
+                this.renderLogs();
+                console.log('日志添加成功:', savedLog);
+            } else {
+                // 如果API失败，本地添加日志
+                const localLog = {
+                    id: Date.now(),
+                    ...log,
+                    timestamp: new Date().toISOString()
+                };
+                this.logs.unshift(localLog);
+                this.renderLogs();
+                console.log('日志添加成功（本地）:', localLog);
+            }
+        } catch (error) {
+            console.error('添加日志失败:', error);
+            // 本地添加日志作为后备
+            const localLog = {
+                id: Date.now(),
+                ...log,
+                timestamp: new Date().toISOString()
+            };
+            this.logs.unshift(localLog);
+            this.renderLogs();
+        }
     }
 
     renderLogs() {
