@@ -333,7 +333,9 @@ const renderTaskTree = computed(() => {
         const taskParentId = task.parentId === '' || task.parentId === undefined ? null : task.parentId
         // 根据选择的项目筛选（包括子项目）
         const projectMatch = !relatedProjectIds || relatedProjectIds.includes(task.projectId)
-        return taskParentId === parentId && projectMatch
+        // 排除已完成的任务
+        const notCompleted = task.status !== '已完成'
+        return taskParentId === parentId && projectMatch && notCompleted
       })
       .map(task => {
         const assignedPerson = task.assignedTo ? personnel.value.find(p => p.id === task.assignedTo) : null
