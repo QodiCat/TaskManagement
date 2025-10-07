@@ -122,12 +122,27 @@ const projectsActions = {
     return newProject
   },
 
-  // 删除项目（递归删除子项目）
+  // 删除项目（递归删除子项目和相关任务）
   delete(projectId) {
     const projectToDelete = projects.value.find(p => p.id === projectId)
     if (!projectToDelete) return false
 
-    // 递归删除子项目
+    // 获取所有需要删除的项目ID（包括子项目）
+    const projectIdsToDelete = []
+    const collectProjectIds = (id) => {
+      projectIdsToDelete.push(id)
+      const children = projects.value.filter(p => p.parentId === id)
+      children.forEach(child => collectProjectIds(child.id))
+    }
+    collectProjectIds(projectId)
+
+    // 删除所有属于这些项目的任务
+    const tasksToDelete = tasks.value.filter(task => projectIdsToDelete.includes(task.projectId))
+    tasksToDelete.forEach(task => {
+      tasksActions.delete(task.id)
+    })
+
+    // 递归删除项目
     const deleteProjectAndChildren = (id) => {
       const children = projects.value.filter(p => p.parentId === id)
       children.forEach(child => deleteProjectAndChildren(child.id))
@@ -136,6 +151,14 @@ const projectsActions = {
 
     deleteProjectAndChildren(projectId)
     writeJsonFile('projects', projects.value)
+
+    // 添加日志
+    logsActions.add({
+      type: '项目删除',
+      message: `删除项目：${projectToDelete.name}（及其所有子项目和相关任务）`,
+      projectId: projectId
+    })
+
     return true
   },
 

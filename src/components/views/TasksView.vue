@@ -25,6 +25,13 @@
           >
             <i class="fas fa-plus"></i> 新建子项目
           </button>
+          <button 
+            v-if="selectedProjectId" 
+            class="btn btn-outline-danger btn-sm" 
+            @click="deleteProject"
+          >
+            <i class="fas fa-trash"></i> 删除项目
+          </button>
         </div>
         <div class="header-actions">
           <button id="toggleAllBtn" class="btn btn-secondary" @click="toggleAllTasks">
@@ -415,8 +422,22 @@ const showAddSubProjectModal = () => {
   emit('showAddProjectModal', selectedProjectId.value)
 }
 
-const onProjectChange = () => {
-  // 项目改变时重新渲染任务树
+const deleteProject = () => {
+  const project = projects.value.find(p => p.id === selectedProjectId.value)
+  if (!project) return
+
+  const confirmMessage = `确定要删除项目"${project.name}"吗？\n\n这将同时删除：\n• 该项目的所有子项目\n• 属于这些项目的全部任务\n\n此操作无法撤销！`
+
+  if (confirm(confirmMessage)) {
+    try {
+      projectsActions.delete(selectedProjectId.value)
+      selectedProjectId.value = '' // 重置选择的项目
+      alert('项目删除成功')
+    } catch (error) {
+      console.error('删除项目失败:', error)
+      alert('删除项目失败，请重试')
+    }
+  }
 }
 
 const startTask = (taskId) => {
