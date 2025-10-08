@@ -146,8 +146,25 @@ app.post('/api/:type', (req, res) => {
       return res.status(404).json({ error: '数据类型不存在' })
     }
 
-    const data = req.body
-    writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8')
+    // 对于logs，执行追加操作而不是直接覆盖
+    if (type === 'logs') {
+      const existingData = JSON.parse(readFileSync(filePath, 'utf8') || '[]')
+      // 确保existingData是数组
+      const logsArray = Array.isArray(existingData) ? existingData : []
+      // 添加新日志到数组开头
+      const newLog = {
+        id: Date.now(),
+        ...req.body,
+        timestamp: new Date().toISOString()
+      }
+      logsArray.unshift(newLog)
+      writeFileSync(filePath, JSON.stringify(logsArray, null, 2), 'utf8')
+    } else {
+      // 其他数据类型直接覆盖
+      const data = req.body
+      writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8')
+    }
+
     res.json({ success: true })
   } catch (error) {
     console.error('保存数据失败:', error)

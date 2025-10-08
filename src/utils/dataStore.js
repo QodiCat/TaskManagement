@@ -58,7 +58,15 @@ async function reloadData() {
     personnel.value = await readJsonFile(DATA_PATHS.personnel, [])
     tasks.value = await readJsonFile(DATA_PATHS.tasks, [])
     const logsData = await readJsonFile(DATA_PATHS.logs, [])
-    logs.value = Array.isArray(logsData) ? logsData : [logsData].filter(item => item && Object.keys(item).length > 0)
+    // 确保logs始终是数组格式
+    if (Array.isArray(logsData)) {
+      logs.value = logsData
+    } else if (logsData && typeof logsData === 'object' && Object.keys(logsData).length > 0) {
+      // 如果是单个对象，转换为数组
+      logs.value = [logsData]
+    } else {
+      logs.value = []
+    }
     projects.value = await readJsonFile(DATA_PATHS.projects, [])
     
     console.log('数据重新加载完成:', { 
