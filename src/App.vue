@@ -3,6 +3,13 @@
     <header class="header">
       <h1><i class="fas fa-tasks"></i> 项目管理系统</h1>
       <div class="header-actions">
+        <button id="backupBtn" class="btn btn-secondary" @click="backupData">
+          <i class="fas fa-download"></i> 备份数据
+        </button>
+        <input type="file" ref="fileInput" @change="handleFileSelect" accept=".zip" style="display: none">
+        <button id="importBtn" class="btn btn-warning" @click="importData">
+          <i class="fas fa-upload"></i> 导入数据
+        </button>
         <button id="addPersonBtn" class="btn btn-primary" @click="showAddPersonModal">
           <i class="fas fa-user-plus"></i> 添加人员
         </button>
@@ -83,6 +90,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import axios from 'axios'
 import { initializeData } from './utils/dataStore.js'
 import PersonnelView from './components/views/PersonnelView.vue'
 import TasksView from './components/views/TasksView.vue'
@@ -123,6 +131,7 @@ const tasksViewRef = ref(null)
 const ganttViewRef = ref(null)
 const archivedViewRef = ref(null)
 const logsViewRef = ref(null)
+const fileInput = ref(null)
 
 const switchTab = (tabId) => {
   activeTab.value = tabId
@@ -244,6 +253,77 @@ const addLog = async (type, message) => {
   } catch (error) {
     console.error('添加日志失败:', error)
   }
+}
+
+const backupData = async () => {
+  try {
+    const response = await axios.get('/api/backup', {
+      responseType: 'blob' // 重要：设置为blob以处理二进制数据
+    })
+
+    // 创建下载链接
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', 'data_backup.zip')
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+
+    // 添加日志
+    await addLog('backup', '执行了数据备份')
+  } catch (error) {
+    console.error('备份失败:', error)
+    alert('备份失败，请稍后重试')
+  }
+}
+
+const importData = () => {
+  fileInput.value.click()
+}
+
+const handleFileSelect = async (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+
+  if (!file.name.endsWith('.zip')) {
+    alert('请选择.zip格式的文件')
+    return
+  }
+
+  if (!confirm('导入数据将覆盖现有数据，确定要继续吗？')) {
+    return
+  }
+
+  try {
+    const formData = new FormData()
+    formData.append('backupFile', file)
+
+    const response = await axios.post('/api/import', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+
+    alert('数据导入成功')
+    
+    // 刷新所有数据
+    if (personnelViewRef.value) personnelViewRef.value.loadPersonnel()
+    if (tasksViewRef.value) tasksViewRef.value.loadTasks()
+    if (ganttViewRef.value) ganttViewRef.value.loadData()
+    if (archivedViewRef.value) archivedViewRef.value.loadArchivedProjects()
+    if (logsViewRef.value) logsViewRef.value.loadLogs()
+
+    // 添加日志
+    await addLog('import', '执行了数据导入')
+  } catch (error) {
+    console.error('导入失败:', error)
+    alert('导入失败，请检查文件格式')
+  }
+
+  // 重置文件输入
+  event.target.value = ''
 }
 
 onMounted(async () => {
