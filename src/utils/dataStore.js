@@ -48,21 +48,27 @@ async function writeJsonFile(key, data) {
 
 // 初始化数据
 async function initializeData() {
+  await reloadData()
+}
+
+// 重新加载所有数据（用于导入后刷新）
+async function reloadData() {
   try {
-    // 从JSON文件读取数据
+    // 重新从JSON文件读取数据
     personnel.value = await readJsonFile(DATA_PATHS.personnel, [])
     tasks.value = await readJsonFile(DATA_PATHS.tasks, [])
-    logs.value = await readJsonFile(DATA_PATHS.logs, [])
+    const logsData = await readJsonFile(DATA_PATHS.logs, [])
+    logs.value = Array.isArray(logsData) ? logsData : [logsData].filter(item => item && Object.keys(item).length > 0)
     projects.value = await readJsonFile(DATA_PATHS.projects, [])
     
-    console.log('数据初始化完成:', { 
+    console.log('数据重新加载完成:', { 
       personnel: personnel.value.length, 
       tasks: tasks.value.length, 
       logs: logs.value.length,
       projects: projects.value.length
     })
   } catch (error) {
-    console.error('初始化数据失败:', error)
+    console.error('重新加载数据失败:', error)
   }
 }
 
@@ -336,6 +342,10 @@ const logsActions = {
 
   // 添加日志
   add(log) {
+    // 确保logs.value是数组
+    if (!Array.isArray(logs.value)) {
+      logs.value = []
+    }
     const newLog = {
       id: Date.now(),
       ...log,
@@ -357,5 +367,6 @@ export {
   tasksActions,
   logsActions,
   projectsActions,
-  initializeData
+  initializeData,
+  reloadData
 }

@@ -91,7 +91,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import axios from 'axios'
-import { initializeData } from './utils/dataStore.js'
+import { initializeData, reloadData } from './utils/dataStore.js'
 import PersonnelView from './components/views/PersonnelView.vue'
 import TasksView from './components/views/TasksView.vue'
 import GanttView from './components/views/GanttView.vue'
@@ -308,7 +308,10 @@ const handleFileSelect = async (event) => {
 
     alert('数据导入成功')
     
-    // 刷新所有数据
+    // 重新加载所有数据
+    await reloadData()
+    
+    // 刷新所有视图
     if (personnelViewRef.value) personnelViewRef.value.loadPersonnel()
     if (tasksViewRef.value) tasksViewRef.value.loadTasks()
     if (ganttViewRef.value) ganttViewRef.value.loadData()
