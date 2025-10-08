@@ -37,6 +37,10 @@
         v-if="activeTab === 'gantt'"
         ref="ganttViewRef"
       />
+      <ArchivedProjectsView
+        v-if="activeTab === 'archived'"
+        ref="archivedViewRef"
+      />
       <LogsView
         v-if="activeTab === 'logs'"
         ref="logsViewRef"
@@ -76,6 +80,7 @@ import { initializeData } from './utils/dataStore.js'
 import PersonnelView from './components/views/PersonnelView.vue'
 import TasksView from './components/views/TasksView.vue'
 import GanttView from './components/views/GanttView.vue'
+import ArchivedProjectsView from './components/views/ArchivedProjectsView.vue'
 import LogsView from './components/views/LogsView.vue'
 import AddPersonModal from './components/modals/AddPersonModal.vue'
 import AddTaskModal from './components/modals/AddTaskModal.vue'
@@ -91,6 +96,7 @@ const tabs = [
   { id: 'personnel', name: '人员管理' },
   { id: 'tasks', name: '功能需求表' },
   { id: 'gantt', name: '甘特图' },
+  { id: 'archived', name: '已归档项目' },
   { id: 'logs', name: '操作日志' }
 ]
 
@@ -105,6 +111,7 @@ const modals = reactive({
 const personnelViewRef = ref(null)
 const tasksViewRef = ref(null)
 const ganttViewRef = ref(null)
+const archivedViewRef = ref(null)
 const logsViewRef = ref(null)
 
 const switchTab = (tabId) => {

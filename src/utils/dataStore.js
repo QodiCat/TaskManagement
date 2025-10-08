@@ -173,9 +173,50 @@ const projectsActions = {
     return null
   },
 
-  // 根据ID查找项目
-  findById(id) {
-    return projects.value.find(p => p.id === id)
+  // 归档项目
+  archive(projectId) {
+    const index = projects.value.findIndex(p => p.id === projectId)
+    if (index !== -1) {
+      projects.value[index] = { 
+        ...projects.value[index], 
+        archived: true, 
+        archivedAt: new Date().toISOString() 
+      }
+      writeJsonFile('projects', projects.value)
+      
+      // 添加日志
+      logsActions.add({
+        type: '项目归档',
+        message: `归档项目：${projects.value[index].name}`,
+        projectId: projectId
+      })
+      
+      return projects.value[index]
+    }
+    return null
+  },
+
+  // 取消归档项目
+  unarchive(projectId) {
+    const index = projects.value.findIndex(p => p.id === projectId)
+    if (index !== -1) {
+      projects.value[index] = { 
+        ...projects.value[index], 
+        archived: false,
+        archivedAt: undefined
+      }
+      writeJsonFile('projects', projects.value)
+      
+      // 添加日志
+      logsActions.add({
+        type: '项目取消归档',
+        message: `取消归档项目：${projects.value[index].name}`,
+        projectId: projectId
+      })
+      
+      return projects.value[index]
+    }
+    return null
   },
 
   // 获取子项目

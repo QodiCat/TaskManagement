@@ -27,6 +27,13 @@
           </button>
           <button 
             v-if="selectedProjectId" 
+            class="btn btn-outline-warning btn-sm" 
+            @click="archiveProject"
+          >
+            <i class="fas fa-archive"></i> 归档项目
+          </button>
+          <button 
+            v-if="selectedProjectId" 
             class="btn btn-outline-danger btn-sm" 
             @click="deleteProject"
           >
@@ -286,7 +293,9 @@ const projectOptions = computed(() => {
       .filter(project => {
         // 统一处理parentId的比较，空字符串和null都视为根项目
         const projectParentId = project.parentId === '' || project.parentId === null ? null : project.parentId
-        return projectParentId === parentId
+        // 过滤掉已归档的项目
+        const notArchived = !project.archived
+        return projectParentId === parentId && notArchived
       })
       .map(project => ({
         ...project,
@@ -321,7 +330,7 @@ const renderTaskTree = computed(() => {
   const getRelatedProjectIds = (projectId) => {
     const ids = [projectId]
     const addChildren = (parentId) => {
-      const children = projects.value.filter(p => p.parentId === parentId)
+      const children = projects.value.filter(p => p.parentId === parentId && !p.archived)
       children.forEach(child => {
         ids.push(child.id)
         addChildren(child.id)
@@ -342,7 +351,10 @@ const renderTaskTree = computed(() => {
         const projectMatch = !relatedProjectIds || relatedProjectIds.includes(task.projectId)
         // 排除已完成的任务
         const notCompleted = task.status !== '已完成'
-        return taskParentId === parentId && projectMatch && notCompleted
+        // 排除属于已归档项目的任务
+        const project = projects.value.find(p => p.id === task.projectId)
+        const notArchived = !project || !project.archived
+        return taskParentId === parentId && projectMatch && notCompleted && notArchived
       })
       .map(task => {
         const assignedPerson = task.assignedTo ? personnel.value.find(p => p.id === task.assignedTo) : null
@@ -420,6 +432,24 @@ const showAddProjectModal = () => {
 
 const showAddSubProjectModal = () => {
   emit('showAddProjectModal', selectedProjectId.value)
+}
+
+const archiveProject = () => {
+  const project = projects.value.find(p => p.id === selectedProjectId.value)
+  if (!project) return
+
+  const confirmMessage = `确定要归档项目"${project.name}"吗？\n\n归档后：\n• 该项目将从功能需求表中隐藏\n• 项目及其所有任务将在"已归档项目"页面中显示\n• 可以随时取消归档恢复显示`
+
+  if (confirm(confirmMessage)) {
+    try {
+      projectsActions.archive(selectedProjectId.value)
+      selectedProjectId.value = '' // 重置选择的项目
+      alert('项目归档成功')
+    } catch (error) {
+      console.error('归档项目失败:', error)
+      alert('归档项目失败，请重试')
+    }
+  }
 }
 
 const deleteProject = () => {

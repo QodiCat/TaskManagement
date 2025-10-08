@@ -95,7 +95,9 @@ const projectOptions = computed(() => {
       .filter(project => {
         // 统一处理parentId的比较，空字符串和null都视为根项目
         const projectParentId = project.parentId === '' || project.parentId === null ? null : project.parentId
-        return projectParentId === parentId
+        // 过滤掉已归档的项目
+        const notArchived = !project.archived
+        return projectParentId === parentId && notArchived
       })
       .map(project => ({
         ...project,
@@ -134,7 +136,7 @@ const renderGantt = () => {
   const getRelatedProjectIds = (projectId) => {
     const ids = [projectId]
     const addChildren = (parentId) => {
-      const children = projects.value.filter(p => p.parentId === parentId)
+      const children = projects.value.filter(p => p.parentId === parentId && !p.archived)
       children.forEach(child => {
         ids.push(child.id)
         addChildren(child.id)
