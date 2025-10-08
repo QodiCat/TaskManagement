@@ -119,7 +119,7 @@
               >
                 <i class="fas fa-check"></i> 完成
               </button>
-              <button class="btn btn-primary btn-sm" @click="showAssignTaskModal(task.id)">
+              <button class="btn btn-primary btn-sm" @click="showEditTaskModal(task.id)">
                 <i class="fas fa-edit"></i> 编辑
               </button>
               <button class="btn btn-danger btn-sm" @click="deleteTask(task.id)">
@@ -197,7 +197,7 @@
                   >
                     <i class="fas fa-check"></i> 完成
                   </button>
-                  <button class="btn btn-primary btn-sm" @click="showAssignTaskModal(child.id)">
+                  <button class="btn btn-primary btn-sm" @click="showEditTaskModal(child.id)">
                     <i class="fas fa-edit"></i> 编辑
                   </button>
                   <button class="btn btn-danger btn-sm" @click="deleteTask(child.id)">
@@ -260,7 +260,7 @@
                       >
                         <i class="fas fa-check"></i> 完成
                       </button>
-                      <button class="btn btn-primary btn-sm" @click="showAssignTaskModal(grandChild.id)">
+                      <button class="btn btn-primary btn-sm" @click="showEditTaskModal(grandChild.id)">
                         <i class="fas fa-edit"></i> 编辑
                       </button>
                       <button class="btn btn-danger btn-sm" @click="deleteTask(grandChild.id)">
@@ -282,7 +282,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { tasks, personnel, projects, tasksActions, projectsActions } from '@/utils/dataStore.js'
 
-const emit = defineEmits(['showAddTaskModal', 'showAssignTaskModal', 'showAddProjectModal'])
+const emit = defineEmits(['showAddTaskModal', 'showAssignTaskModal', 'showEditTaskModal', 'showAddProjectModal'])
 
 const selectedProjectId = ref('')
 
@@ -424,6 +424,10 @@ const showAddSubTaskModal = (parentTaskId) => {
 
 const showAssignTaskModal = (taskId) => {
   emit('showAssignTaskModal', taskId)
+}
+
+const showEditTaskModal = (taskId) => {
+  emit('showEditTaskModal', taskId)
 }
 
 const showAddProjectModal = () => {

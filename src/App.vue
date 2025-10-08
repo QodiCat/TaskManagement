@@ -31,6 +31,7 @@
         ref="tasksViewRef"
         @showAddTaskModal="handleShowAddTaskModal"
         @showAssignTaskModal="handleShowAssignTaskModal"
+        @showEditTaskModal="handleShowEditTaskModal"
         @showAddProjectModal="handleShowAddProjectModal"
       />
       <GanttView
@@ -65,6 +66,12 @@
       @close="closeModal('assignTask')"
       @taskAssigned="onTaskAssigned"
     />
+    <EditTaskModal
+      :show="modals.editTask"
+      :taskId="currentEditTaskId"
+      @close="closeModal('editTask')"
+      @taskEdited="onTaskEdited"
+    />
     <AddProjectModal
       :show="modals.addProject"
       :parentProjectId="currentParentProjectId"
@@ -85,11 +92,13 @@ import LogsView from './components/views/LogsView.vue'
 import AddPersonModal from './components/modals/AddPersonModal.vue'
 import AddTaskModal from './components/modals/AddTaskModal.vue'
 import AssignTaskModal from './components/modals/AssignTaskModal.vue'
+import EditTaskModal from './components/modals/EditTaskModal.vue'
 import AddProjectModal from './components/modals/AddProjectModal.vue'
 
 const activeTab = ref('personnel')
 const currentParentTaskId = ref(null)
 const currentAssignTaskId = ref(null)
+const currentEditTaskId = ref(null)
 const currentParentProjectId = ref(null)
 
 const tabs = [
@@ -104,6 +113,7 @@ const modals = reactive({
   addPerson: false,
   addTask: false,
   assignTask: false,
+  editTask: false,
   addProject: false
 })
 
@@ -133,6 +143,11 @@ const handleShowAddTaskModal = (parentTaskId = null) => {
 const handleShowAssignTaskModal = (taskId) => {
   currentAssignTaskId.value = taskId
   modals.assignTask = true
+}
+
+const handleShowEditTaskModal = (taskId) => {
+  currentEditTaskId.value = taskId
+  modals.editTask = true
 }
 
 const handleShowAddProjectModal = (parentProjectId = null) => {
@@ -186,6 +201,18 @@ const onTaskAssigned = async (task) => {
   // 添加日志
   const person = await getPersonById(task.assignedTo)
   await addLog('assign', `将任务"${task.name}"分配给了${person.name}`)
+}
+
+const onTaskEdited = async (task) => {
+  // 刷新相关视图
+  if (tasksViewRef.value) {
+    tasksViewRef.value.loadTasks()
+  }
+  if (ganttViewRef.value) {
+    ganttViewRef.value.loadData()
+  }
+  // 添加日志
+  await addLog('update', `编辑了任务：${task.name}`)
 }
 
 const onProjectAdded = async (project) => {
