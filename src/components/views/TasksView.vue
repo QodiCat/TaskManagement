@@ -40,6 +40,26 @@
             <i class="fas fa-trash"></i> 删除项目
           </button>
         </div>
+        <div class="person-selector">
+          <label for="personSelect">选择人员：</label>
+          <select id="personSelect" v-model="selectedPersonId" @change="onPersonChange">
+            <option value="">所有人员</option>
+            <option
+              v-for="person in personnel"
+              :key="person.id"
+              :value="person.id"
+            >
+              {{ person.name }}
+            </option>
+          </select>
+          <button 
+            v-if="selectedProjectId || selectedPersonId" 
+            class="btn btn-outline-secondary btn-sm" 
+            @click="clearFilters"
+          >
+            <i class="fas fa-times"></i> 清除筛选
+          </button>
+        </div>
         <div class="header-actions">
           <button id="toggleAllBtn" class="btn btn-secondary" @click="toggleAllTasks">
             <i class="fas fa-compress-alt"></i> 全部折叠
@@ -285,6 +305,7 @@ import { tasks, personnel, projects, tasksActions, projectsActions } from '@/uti
 const emit = defineEmits(['showAddTaskModal', 'showAssignTaskModal', 'showEditTaskModal', 'showAddProjectModal'])
 
 const selectedProjectId = ref('')
+const selectedPersonId = ref('')
 
 // 构建项目层级选项
 const projectOptions = computed(() => {
@@ -320,6 +341,19 @@ const projectOptions = computed(() => {
   return flattenProjects(tree)
 })
 
+const onProjectChange = () => {
+  // 项目筛选变化时可以添加额外逻辑
+}
+
+const onPersonChange = () => {
+  // 人员筛选变化时可以添加额外逻辑
+}
+
+const clearFilters = () => {
+  selectedProjectId.value = ''
+  selectedPersonId.value = ''
+}
+
 const loadTasks = () => {
   // 数据已经通过响应式系统自动更新，无需手动加载
 }
@@ -349,12 +383,14 @@ const renderTaskTree = computed(() => {
         const taskParentId = task.parentId === '' || task.parentId === undefined ? null : task.parentId
         // 根据选择的项目筛选（包括子项目）
         const projectMatch = !relatedProjectIds || relatedProjectIds.includes(task.projectId)
+        // 根据选择的人员筛选
+        const personMatch = !selectedPersonId.value || task.assignedTo === selectedPersonId.value
         // 排除已完成的任务
         const notCompleted = task.status !== '已完成'
         // 排除属于已归档项目的任务
         const project = projects.value.find(p => p.id === task.projectId)
         const notArchived = !project || !project.archived
-        return taskParentId === parentId && projectMatch && notCompleted && notArchived
+        return taskParentId === parentId && projectMatch && personMatch && notCompleted && notArchived
       })
       .map(task => {
         const assignedPerson = task.assignedTo ? personnel.value.find(p => p.id === task.assignedTo) : null
@@ -574,6 +610,34 @@ defineExpose({
 }
 
 .project-selector select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+}
+
+.person-selector {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.person-selector label {
+  font-weight: 600;
+  color: var(--gray-700);
+  margin: 0;
+}
+
+.person-selector select {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 2px solid var(--gray-300);
+  border-radius: var(--border-radius-md);
+  background: white;
+  font-size: var(--font-size-sm);
+  min-width: 150px;
+  transition: border-color var(--transition-normal);
+}
+
+.person-selector select:focus {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
@@ -916,6 +980,19 @@ defineExpose({
     flex-direction: column;
     gap: var(--spacing-md);
     text-align: center;
+  }
+
+  .project-selector,
+  .person-selector {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--spacing-sm);
+  }
+
+  .project-selector select,
+  .person-selector select {
+    min-width: auto;
+    width: 100%;
   }
 
   .tasks-container {
